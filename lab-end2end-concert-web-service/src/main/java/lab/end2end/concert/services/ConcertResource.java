@@ -1,6 +1,7 @@
 package lab.end2end.concert.services;
 
 import java.net.URI;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import javax.persistence.EntityManager;
@@ -20,6 +21,8 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 
 
 import lab.end2end.concert.domain.Concert;
+import lab.end2end.concert.domain.Genre;
+import lab.end2end.concert.domain.Performer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,7 +99,7 @@ public class ConcertResource {
             em.getTransaction().begin();
             em.persist(concert);
             em.getTransaction().commit();
-
+           
             ResponseBuilder builder = Response.created(URI.create("/concerts/" + concert.getId()));
             return builder.build();
         } finally {
@@ -118,7 +121,8 @@ public class ConcertResource {
             em.close();
         }
     }
-
+    
+  
     @DELETE
     @Path("{id}")
     public Response delete(@PathParam("id") long id) {
