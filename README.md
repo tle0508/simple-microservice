@@ -5,7 +5,7 @@ Before you start
 ----------
 The purpose of this lab is to introduce you how to develop microservice architecture using technologies such as Spring boot, Spring cloud, Feign and Cloud Load balancer.
 
-Begin by forking this repository, then cloning your fork onto your local machine.
+Begin by forking this repository, then cloning your fork onto your local machine. Import it into eclipse. This project includes three projects `lab-microservice-currency-conversion`, `lab-microservice-eureka-naming-server` and `lab-microservice-forex-service`. Please import them as maven project in eclipse by Import > Maven project and choose pom file in these projects. 
 
 Foreign Currency Exchange
 ----------
@@ -15,7 +15,19 @@ In this lab, you will develop microservices that convert the foreign currency ex
 
 ## Excercise 1 - Forex Service
 
-The source code of this service is in the project `lab-mciroservice-forex-service`. This service stores exchange rates and provides service to query the exchange rate. This project is Spring Boot 2.5.0. It has been generated using the [Spring Initializr](https://start.spring.io/) with dependencies to the following libraries
+The source code of this service is in the project `lab-mciroservice-forex-service`. This service stores exchange rates and provides service to query the exchange rate. Below is the sample JSON representing a record of the exchange rate for USD (US dollar) to THB (Thai Baht), which 1 USD is 35 THB.
+
+```
+{
+    "id": 10001,
+    "from": "USD",
+    "to": "THB",
+    "conversionMultiple": 35.00,
+    "port": 8001
+}
+```
+
+This project is Spring Boot 2.5.0. It has been generated using the [Spring Initializr](https://start.spring.io/) with dependencies to the following libraries
 
 ```
 Spring Web 
@@ -35,17 +47,8 @@ The `Spring Web` helps us to develop REST web services. `Spring Boot DevTool` fa
 - `double conversionMultiple` is the actually rate that will be used to multiply with the amount of money in `from` currency to the amount of money in `to` currency. 
 -  `int port` is where the service is executed (We will use this to trace where the service is actually executed, when there are multiple nodes of the same service running). 
 
-Below is the sample JSON representing a record of the exchange rate for USD (US dollar) to THB (Thai Baht), which 1 USD is 35 THB.
+You should add annotation  `@Column(name="currency_from")` to `from` property and `@Column(name="currency_to")` to `to` property to rename the column created in the database. Because `from` and `to` are reserved keyword in most Database server.
 
-```
-{
-    "id": 10001,
-    "from": "USD",
-    "to": "THB",
-    "conversionMultiple": 35.00,
-    "port": 8001
-}
-```
 
 There is a `ExchangeValueRepository` provided in this project. This class has two methods. The `findByFromAndTo` helps to find the exchange rate by given `from` and `to` currency. The `save` helps to save a new record of exchange rate. (You don't have to modify this class.)
 
@@ -53,7 +56,7 @@ There is a `ExchangeValueRepository` provided in this project. This class has tw
 #### (b) Develop REST Controller
 The `ForexControlller` is a REST controller that accept request to retrieve the exchange rate with method `retrieveExchangeValue()`. This method has to and from parameter that are bind to service's parameter using `@PathVariable` annotation. 
 
-The `GetMapping("/currency-exchange/from/{from}/to/{to}")` defines that the parameters should be passed through URL. By requesting to `http://x.x.x.x/currency-exchange/from/USD/to/THB`, `from` parameter contains `USD` value and `to` parameter contains `THB` parameter. Please complete the code at line:23 to call a method in `repository` to retrieve the exchange rate by given `from` and `to`.
+The `GetMapping("/currency-exchange/from/{from}/to/{to}")` defines that the parameters should be passed through URL. For example, by making GET request to `http://x.x.x.x/currency-exchange/from/USD/to/THB`, `from` parameter contains `USD` value and `to` parameter contains `THB` parameter. Please complete the code at line:23 to call a method in `repository` to retrieve the exchange rate by given `from` and `to`.
 
 Please uncomment the line below. This line sets a port to exchangeValue to note which port the service is running on. We will use this port information in the later exercise.
 
@@ -71,7 +74,7 @@ server.port=8000
 The first line specifies the name of the application. The second line defines what port the application should be running on.
 
 #### (d) Run REST service.
-You can run this service from `SpringBootMicroserviceForexServiceApplication` as Java Application. This class has `main()` method that can be executed to startup this service as a Spring boot server. After you run this class, the `demo()` mmethod will run automatically to insert three intial data records of exchange rate. You should be able to test this service by requesting to `http://localhost:8000/currency-exchange/from/USD/to/THB` through `GET` method. The response should be a JSON as shown above.
+You can run this service from `SpringBootMicroserviceForexServiceApplication` as Java Application. This class has `main()` method that can be executed to startup this service as a Spring boot server. After you run this class, the `demo()` method will run automatically to insert three intial data records of exchange rate. You should be able to test this service by requesting to `http://localhost:8000/currency-exchange/from/USD/to/THB` through `GET` method. The response should be a JSON as shown above.
 
 Now, we have a web service to provide exchange rate. For the next step, we will develop a new service to make calculation for currency conversion.
 
@@ -108,7 +111,7 @@ public interface CurrencyExchangeServiceProxy {
     (@PathVariable("from") String from, @PathVariable("to") String to);
 }
 ```
-The annotation `FeignClient` defines the name of application (as we configured this in Exercise 1 (c)) we want to call. You may notice that `retrieveExchangeValue()` method signature here is similar to that of `retrieveExchangeValue()` in `ForexController`. Because it aims to call the service to retrieve the exchange rate from `forex-service`. 
+The annotation `@FeignClient` defines the name of application (as we configured this in Exercise 1 (c)) we want to call. You may notice that `retrieveExchangeValue()` method signature here is similar to that of `retrieveExchangeValue()` in `ForexController`. Because it aims to call the service to retrieve the exchange rate from `forex-service`. 
 
 In the main class of this application (`SpringBootMicroserviceCurrencyConversionApplication`), please also add `@EnableFeignClients` above the class definition, somewhere below `@SpringBootApplication`.
 
@@ -119,7 +122,7 @@ Now, we can develop a service to convert the currency in `CurrencyConversionCont
  @Autowired
 private CurrencyExchangeServiceProxy proxy;
 ```
-In `convertCurrency()` method aims to receive request to convert the currency. This endpoint accept parameters such as `from`, `to` currency and `quantity` that is an amount of money to convert. You need to complete this method by calling `retreiveExchangeValue` through proxy with given `from` and `to` currency. The `return` statement should return a new object of `CurrencyConversionBean` that we have already made the calculation.
+In `convertCurrency()` method aims to receive request to convert the currency. This endpoint accepts parameters such as `from`, `to` currency and `quantity` that is an amount of money to convert. You need to complete this method by calling `retreiveExchangeValue` through proxy with given `from` and `to` currency. The `return` statement should return a new object of `CurrencyConversionBean` that we have already made the calculation.
 
 #### (c) Configure REST Service
 In the `application.properties`. Please add the following lines.
@@ -157,7 +160,17 @@ eureka.client.fetch-registry=false
 ```
 The `eureka.client.register-with-eureka` and `eureka.client.fetch-registry` are set to false  so that it doesn’t try to register itself.
 
-The next step is to configure Eureka client. We have two services `forex-service` and `currency-conversion` which will act as Eureka client. In the main class of spring boot application (`SpringBootMicroserviceCurrencyConversionApplication` and `SpringBootMicroserviceForexServiceApplication` class),  add `@EnableDiscoveryClient` annotation above the class definition as the sample below.
+The next step is to configure Eureka client. We have two services `forex-service` and `currency-conversion` which will act as Eureka client. Please add the dependency to eureka client library in pom.xml file of both `lab-microservice-currency-conversion` and `lab-microservice-forex-service` project.
+
+```
+<dependency>
+<groupId>org.springframework.cloud</groupId>
+<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+```
+
+
+ In the main class of spring boot application (`SpringBootMicroserviceCurrencyConversionApplication` and `SpringBootMicroserviceForexServiceApplication` class),  add `@EnableDiscoveryClient` annotation above the class definition as the sample below.
 
 ```
 @SpringBootApplication
@@ -166,7 +179,7 @@ public class SpringBootMicroserviceForexServiceApplication {
 ...
 ```
 
-In the application.properties of both project `lab-microservice-currency-conversion` and `lab-microservice-forex-service`, please add the following line to configure Eureka client. This configuration enables both application to register on Eureka server located at `http://localhost:8761/eureka/`
+In the `application.properties` of both project `lab-microservice-currency-conversion` and `lab-microservice-forex-service`, please add the following line to configure Eureka client. This configuration enables both application to register on Eureka server located at `http://localhost:8761/eureka/`
 
 ```
 eureka.client.register-with-eureka=true
@@ -175,8 +188,14 @@ eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka/
 ```
 
 #### (b) Configure Load Balancer 
-This step add a load balancer when the `currency-conversion` consumes `forex-service`. As there can be multiple instances of `forex-service`, the load balancer will help distribute the requests to different instances depending on their status and availability. We will use Spring cloud Load balancer in this exercise. Please make sure `spring-cloud-starter-loadbalancer` is included in the dependency of pom.xml of `lab-microservice-currency-conversion`.
+This step add a load balancer when the `currency-conversion` consumes `forex-service`. As there can be multiple instances of `forex-service`, the load balancer will help distribute the requests to different instances depending on their status and availability. We will use Spring cloud Load balancer in this exercise. Please add `spring-cloud-starter-loadbalancer`  in the dependency of pom.xml of `lab-microservice-currency-conversion`.
 
+```
+<dependency>
+	<groupId>org.springframework.cloud</groupId>
+	<artifactId>spring-cloud-starter-loadbalancer</artifactId>
+</dependency>
+```
 
 Now, add the load balancer configuration class `LoadBalancerConfiguration` as shown below in `lab-microservice-currency-conversion` project. There is number of options you configure the load balancer to distribute the load in different way such as distribute to the same instance if available, or distribute based on the request's priority or current load. 
 
@@ -200,9 +219,10 @@ public class LoadBalancerConfiguration {
 }
 ```
 
-In the `CurrencyExchangeServiceProxy` interface, add the annotation below to the interface definition (somewhere below `@FeignClient`). This annotation tells Feign client to use specified load balancer's configuration class when consuming services on `forex-service`.
+In the `CurrencyExchangeServiceProxy` interface, Please also remove `url="localhost:8000"` at `@FeignClient`, as we don't want to hard-coded to any endpoint at any specific port but we will use load balancer to manage this instead. Then, you have to add the annotation below to the interface definition (somewhere below `@FeignClient`).  This annotation tells Feign client to use specified load balancer's configuration class when consuming services on `forex-service`.
 
 ```
+@FeignClient(name = "forex-service")
 @LoadBalancerClient(name = "forex-service",configuration=LoadBalancerConfiguration.class)
 ```
 

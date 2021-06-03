@@ -20,11 +20,11 @@ public class ForexController {
     (@PathVariable String from, @PathVariable String to){
     
 	 //TODO: use repository to find exchange rate using from and to parameter.
-    ExchangeValue exchangeValue = null;
+    ExchangeValue exchangeValue = repository.findByFromAndTo(from, to);
     
-   /* exchangeValue.setPort(
+    exchangeValue.setPort(
         Integer.parseInt(environment.getProperty("server.port")));
-    */
+    
     return exchangeValue;
   }
 }

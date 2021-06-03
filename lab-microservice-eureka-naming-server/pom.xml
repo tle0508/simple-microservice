@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>th.ac.mfu</groupId>
-	<name>lab-microservice-eureka-naming-server</name>
 	<artifactId>lab-microservice-eureka-naming-server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<name>lab-microservice-eureka-naming-server</name>
 	<description>Eureka Server for naming service</description>
 	<properties>
 		<java.version>11</java.version>
