@@ -1,125 +1,227 @@
-Lab - JPA and end-to-end web service development
+Lab - Microservice Development
 ==========
 
 Before you start
 ----------
-The purpose of this lab is to reinforce and build upon the course material, gaining more practice with JPA, Jackson, and JAX-RS in the end-to-end development of a simple Concert service.
+The purpose of this lab is to introduce you how to develop microservice architecture using technologies such as Spring boot, Spring cloud, Feign and Cloud Load balancer.
 
 Begin by forking this repository, then cloning your fork onto your local machine.
 
-Exercise - Develop a stateless Concert Web service that uses ORM
+Foreign Currency Exchange
 ----------
-Develop a JAX-RS Web service for managing Concerts. The service should be stateless and use JPA to persist domain objects to a database.
+In this lab, you will develop microservices that convert the foreign currency exchange. There are two services namely: `forex-service` and `currency-conversion`. The `forex-service` provides the exchange rate by given rate of origin and rate to be exchanged. The `currency-conversion` converts the amount of money in one currency to another. 
 
-The service is to provide a basic REST interface as follows:
+![](overview.png)
 
-- `GET /concerts/{id}`. Retrieves a representation of a `Concert`, identified by its unique ID. The HTTP response message should have a status code of either 200 or 404, depending on whether the specified concert is found.
+## Excercise 1 - Forex Service
 
-- `POST /concerts`. Creates a `Concert`. The body of the HTTP request message contains a representation of the new concert (other than the unique ID) to create. The service generates the concert's ID via the database, and returns a HTTP response of 201 with a `Location` header storing the URI for the newly created concert.
-  
-- `PUT /concerts`. Updates an existing `Concert`. A representation of the modified concert is stored in the body of the HTTP request message. Being an existing concert that was earlier created by the Web service, it should include a unique ID value. The HTTP status code should be 204 on success, or 404 where the concert isn't known to the Web service.
+The source code of this service is in the project `lab-mciroservice-forex-service`. This service stores exchange rates and provides service to query the exchange rate. This project is Spring Boot 2.5.0. It has been generated using the [Spring Initializr](https://start.spring.io/) with dependencies to the following libraries
 
-- `DELETE /concerts/{id}`. Deletes a `Concert`, where the concert to delete is specified by a unique ID. This operation returns either 204 or 404, depending on whether the concert exists.
-
-- `DELETE /concerts`. Deletes all `Concert`s, and returns a 204 status code.
-
-#### About the domain model
-The Web service is to store `Concert` and `Performer` entities. Similarly to Lab 03's `se325-lab-03-database` exercise, a `Concert` has a `Performer`, `Performer` may perform at many `Concert`s. For the REST interface, you don't need to use DTO classes - `Concert`s and `Performer`s are sufficiently simple and involve little data, so when a `Concert` is being exchanged between a client and the Web service, it should include its `Performer`. JSON should be supported as the data interchange format of choice for this web service.
-
-#### Project structure
-A partially complete project named `se325-lab-04-concert` can be found in the repository. The project is a multi-module project with `se325-lab-04-concert-domain-model` and `se325-lab-04-concert-web-service` as child projects.
-
-- The parent project's POM file declares dependencies common to the two modules.
-
-- The `se325-lab-04-concert-domain-model` project includes complete implementations of the `Concert` and `Performer` classes, along with classes that are useful during JSON marshalling/unmrshalling. It also contains the unit test class `DomainModelTest`, which can help determine whether the domain classes have been correctly annotated for persistence (JPA) and data transfer (Jackson).
-
-- Project `se325-lab-04-concert-web-service` includes a JPA configuration file (`persistence.xml`), a class named `PersistenceManager`, and an integration test class (`ConcertResourceIT`).
-
-#### (a) Import the project
-Import the project into your IDE, as you have done for multi-module projects in previous labs.
-
-#### (b) Develop the project
-To complete the project, you need to do the following:
-
-- Add all necessary metadata (annotations) to the domain classes `Concert` and `Performer`. You should use appropriate Jackson annotations to specify how instances are to be marshalled / unmarshalled to/from JSON. Similarly, you should add JPA annotations to specify how `Concert` and `Performer` instances should be persisted.
-   - **You may transfer your `Concert` and `Performer` classes from the previous lab's `se325-lab-03-database` exercise** to give you a head start on the JPA annotations.
-   - **Note:** The `Concert` class doesn't have a `setPerformer()` method. Consider how this interacts with Jackson marshalling / unmarshalling, and how you might address this issue.
-
-- Introduce a subclass of `javax.ws.rs.core.Application`. This has two start-up responsibilities. First, it should return a *resource-per-request* handler for processing HTTP requests. Second, it should instantiate the supplied `PersistenceManager` class.
-
-- Implement the `Resource` class. As with any JAX-RS application, you need a `Resource` class that performs the actual processing of requests.
-
-##### Stateless service &amp; resource-per-request
-A key difference between this web service and the earlier ones that you've developed is that this one should be stateless - with all `Concert` and `Performer` data stored in a database. Rather than returning a singleton `Resource` handler *__object__*, the `Application` subclass should return a `Resource` handler *__class__*.
-
-Where a `Resource` handler class is returned, the JAX-RS run-time instantiates it every time it's needed to process an incoming request. This is known as  *resource-per-request* handling. It differs to the *singleton-resource* handler that has been used until now, where one `Resource` object is created on start up and used to process all requests. When a web service stores state, obviously the same `Resource` object must be used to process all requests since the `Resource` object updates its in-memory state each time. Now that the web service is to be stateless, the *resource-per-request* model is more appropriate; the `Application` subclass' `getClasses()` method should return the `Resource` class.
-
-##### PersistenceManager
-Class `PersistenceManager` is a singleton class that provides the means to create an `EntityManager`. An `EntityManager` essentially provides the JPA interface for reading and writing persistent objects, and is required by the `Resource` class to retrieve and store data in the database. At construction time, the `PersistenceManager` creates a JPA `EntityManagerFactory` that reads the `persistence.xml` file, scans the entity classes for mapping metadata, and generates the relational schema. These actions should be performed *__once__*, on application startup (hence it's convenient for the `Application` subclass' `getSingletons()` method to instantiate the `PersistenceManager`). 
-
-##### Use of an EntityManager	
-In implementing the `Resource` class' handler methods, you'll need to use the `EntityManager`. The typical usage pattern for `EntityManager` is shown below. Particular `EntityManager` methods that will be useful for this task include:
-
-- `find(Class, primary-key)`. `find()` looks up an object in the database based on the type of object and primary-key value arguments. If a match is found, this method returns an object of the specified type and with the given primary key. If there's no match the method returns `null`.
-
-- `persist(Object)`. This persists a new object in the database when the enclosing transaction commits.
-
-- `merge(Object)`. A `merge()` call updates an object in the database. When the enclosing transaction commits, the database is updated based on the state of the in-memory object to which the `merge()` call applies.
-
-- `remove(Object)`. This deletes an object from the database when the transaction commits.
-
-For this task, the above `EntityManager` methods are sufficient. The `EntityManager` interface will be discussed in more detail this week; for more information in the meantime consult the Javadoc for `javax.persistence.EntityManager` (<https://docs.oracle.com/javaee/7/api/javax/persistence/EntityManager.html>).
-
-A simple JPQL query to return all `Concert`s might be useful for this task, and this can be expressed simply as:
-
-```java
-EntityManager em = PersistenceManager.instance().createEntityManager();
-TypedQuery<Concert> concertQuery = em.createQuery("select c from Concert c", Concert.class);
-List<Concert> concerts = concertQuery.getResultList();
 ```
+Spring Web 
+Spring Boot DevTool
+Spring Data JPA 
+H2 Database
+```
+The `Spring Web` helps us to develop REST web services. `Spring Boot DevTool` facilitate us to develop an application Spring Boot. As this service need to manage the exchange rate, we use `Spring Data JPA` to persist and query records of exchange rate, similar to Hibernate that  we have used in the previous labs. The `H2 Database` is an in-memory SQL database that we use to store the records of exchange rate.
+ 
+ Your task in this exercise is to complete this project.
 
-JPQL will be introduced later. For further information, the Java Enterprise tutorial includes a chapter on JPQL: <https://docs.oracle.com/javaee/7/tutorial/persistence-querylanguage.htm>.
+#### (a) Develop Entity class
+`ExchangeValue` is an entity class that records the exchange rate. You have to complete this class.  This class should have properties as follows: 
+- `Long id` is an identification number (can be automatically generated)
+- `String from` which is the name of currency to be converted 
+-  `String to` is the name of currency to convert to. 
+- `double conversionMultiple` is the actually rate that will be used to multiply with the amount of money in `from` currency to the amount of money in `to` currency. 
+-  `int port` is where the service is executed (We will use this to trace where the service is actually executed, when there are multiple nodes of the same service running). 
 
-###### EntityManager usage scenario
+Below is the sample JSON representing a record of the exchange rate for USD (US dollar) to THB (Thai Baht), which 1 USD is 35 THB.
 
-```java
-// Acquire an EntityManager (creating a new persistence context).
-EntityManager em = PersistenceManager.instance().createEntityManager();
-try {
-    
-    // Start a new transaction.
-    em.getTransaction().begin();
-    
-    // Use the EntityManager to retrieve, persist or delete object(s).
-    // Use em.find(), em.persist(), em.merge(), etc...
-    
-    // Commit the transaction.
-    em.getTransaction().commit();
-    
-} finally {
-    // When you're done using the EntityManager, close it to free up resources.
-    em.close();
+```
+{
+    "id": 10001,
+    "from": "USD",
+    "to": "THB",
+    "conversionMultiple": 35.00,
+    "port": 8001
 }
 ```
 
-#### (c) Run the project
-Once you've added the metadata, `Application` and `Resource` classes, build and run the project, by running the Maven `verify` goal on the `lab-04-concert-parent` project. This will run both the domain model unit tests, and the web service integration tests. These should all pass.
+There is a `ExchangeValueRepository` provided in this project. This class has two methods. The `findByFromAndTo` helps to find the exchange rate by given `from` and `to` currency. The `save` helps to save a new record of exchange rate. (You don't have to modify this class.)
 
-You may run just the domain model unit tests (`DomainModelTest`) directly from your IDE, if you would like to make sure your annotations are correct before proceeding to implement the web service.
 
-You might want to use the H2 console so see the tables that have been generated and populated. 
+#### (b) Develop REST Controller
+The `ForexControlller` is a REST controller that accept request to retrieve the exchange rate with method `retrieveExchangeValue()`. This method has to and from parameter that are bind to service's parameter using `@PathVariable` annotation. 
 
-#### (d) Reflect on the project
-Reflect on the project, and note your thoughts here. Some questions to consider:
+The `GetMapping("/currency-exchange/from/{from}/to/{to}")` defines that the parameters should be passed through URL. By requesting to `http://x.x.x.x/currency-exchange/from/USD/to/THB`, `from` parameter contains `USD` value and `to` parameter contains `THB` parameter. Please complete the code at line:23 to call a method in `repository` to retrieve the exchange rate by given `from` and `to`.
 
-- With regard to web services, what are the benefits to having stateless services?
-
-- What are some of the benefits provided by an ORM?
-
-- What are the benefits and drawbacks with using your domain model classes for both data transfer and persistence, as opposed to using separate DTO classes for data transfer?
-
-Note your thoughts here, and in your journal.
+Please uncomment the line below. This line sets a port to exchangeValue to note which port the service is running on. We will use this port information in the later exercise.
 
 ```
-Your thoughts here.
+ exchangeValue.setPort(
+        Integer.parseInt(environment.getProperty("server.port")));
 ```
+#### (c) Configure REST Service
+You can configure a boot application from `application.properties` resided in the `src/main/resources` folder. Please add the following lines.
+
+```
+spring.application.name=forex-service
+server.port=8000
+```
+The first line specifies the name of the application. The second line defines what port the application should be running on.
+
+#### (d) Run REST service.
+You can run this service from `SpringBootMicroserviceForexServiceApplication` as Java Application. This class has `main()` method that can be executed to startup this service as a Spring boot server. After you run this class, the `demo()` mmethod will run automatically to insert three intial data records of exchange rate. You should be able to test this service by requesting to `http://localhost:8000/currency-exchange/from/USD/to/THB` through `GET` method. The response should be a JSON as shown above.
+
+Now, we have a web service to provide exchange rate. For the next step, we will develop a new service to make calculation for currency conversion.
+
+
+## Exercise 2 - Currency Conversion
+This service will make the currency conversion of given amount of money. The project for this service is `lab-microservice-currency-conversion`. This service calls `\currency-exchange` method of `forex-service` application that we develop in the last exercise. The result of currency conversion should be as shown below. The `quantity` is an amount of money in the currency as specified in `from` and the `totalCalculatedAmount` is the result from the conversion, which is the amount of money in the currency as specified in `to`.
+
+```
+{
+    "id": 2,
+    "from": "EUR",
+    "to": "THB",
+    "conversionMultiple": 45,
+    "quantity": 10000,
+    "totalCalculatedAmount": 450000,
+    "port": 8000
+}
+```
+
+###(a) Develop Currency Conversion Bean
+First of all, we will complete `CurrencyConversionBean`. This bean helps to encapsulates all information that need in the calculation such as `from`, `to` and `conversionMultiple`. The `quantity` property is the amount of money to convert, while `totalCalculatedAmount` is the result from conversion (the amount in `to` currency). Please complete the constructor and getter/setter methods for each properties.
+
+###(b) Develop Feign Proxy 
+We use Feign libray to make the call from this service to that of `forex-service`. Feign is developed by Netflix. It eases making the call between service. The developer needs only to declare and annotate an interface, while the actual implementation is provisioned at runtime. For more information about Feign, please read [here](https://github.com/OpenFeign/feign).
+
+In this exercise, we will develop an interface called `CurrencyExchangeServiceProxy`. This class contains the `retrieveExchangeValue` method's signature. Please complete the source code as shown below
+
+```
+@FeignClient(name="forex-service")
+public interface CurrencyExchangeServiceProxy {
+	
+  @GetMapping("/currency-exchange/from/{from}/to/{to}")
+  public CurrencyConversionBean retrieveExchangeValue
+    (@PathVariable("from") String from, @PathVariable("to") String to);
+}
+```
+The annotation `FeignClient` defines the name of application (as we configured this in Exercise 1 (c)) we want to call. You may notice that `retrieveExchangeValue()` method signature here is similar to that of `retrieveExchangeValue()` in `ForexController`. Because it aims to call the service to retrieve the exchange rate from `forex-service`. 
+
+In the main class of this application (`SpringBootMicroserviceCurrencyConversionApplication`), please also add `@EnableFeignClients` above the class definition, somewhere below `@SpringBootApplication`.
+
+###(c) Develop REST Controller
+Now, we can develop a service to convert the currency in `CurrencyConversionController` class. To call `forex-service` through proxy, we insert the following lines in the class. This `@Autowired` annotation injects the proxy at runtime. 
+
+```
+ @Autowired
+private CurrencyExchangeServiceProxy proxy;
+```
+In `convertCurrency()` method aims to receive request to convert the currency. This endpoint accept parameters such as `from`, `to` currency and `quantity` that is an amount of money to convert. You need to complete this method by calling `retreiveExchangeValue` through proxy with given `from` and `to` currency. The `return` statement should return a new object of `CurrencyConversionBean` that we have already made the calculation.
+
+#### (c) Configure REST Service
+In the `application.properties`. Please add the following lines.
+
+```
+spring.application.name=currency-conversion-service
+server.port=8100
+```
+The first line specifies the name of the application as `currency-conversion-service`. The second line defines port `8100` that this service should be running on.
+
+#### (d) Run REST Service
+You have to make sure that `forex-service` is up and running before starting this application. Please run  `SpringBootMicroserviceCurrencyConversionApplication` as Java application. You can make a GET request to `http://localhost:8100/currency-converter/from/EUR/to/THB/quantity/10000`
+The JSON as shown above should be returned.
+
+You may notice that the `currency-conversion` is highly dependent on the `forex-service`. If there is lots of request and `forex-service` is down, the `currency-conversion` can no longer work. We will solve this problem in the exercise
+
+## Exercise 3 - Making Microservice Resilient
+To make this system more resilient, we need to make couple enhancement as shown in the figure below. First, we add the naming service to register all services in our system. The naming server is similar to address book that records every service in our system and act as a middleman that when service want to consume another service. In our system, `currency-conversion` consumes `forex-service`. Second, we add more instances of `forex-service` and a load balancer to improve its availability, If one instance `forex-service` is down, `currency-conversion` can still connect to another instance of `forex-service`. Having load balancer also make our system more scalable as we can add more instances of any services to help processing high volume of requests.
+
+![](microservice-ex3.png)
+
+#### (a) Develop Naming Server
+We will use Eureka to develop our naming service. Eureka has been developed by Netflix and can be easily generated by Spring Initializr. In this project, `lab-microservice-eureka-naming-server` has been generated with dependencies to Netflix's Eureka server and Spring Boot Dev Tool (please see pom.xml inside this project).
+
+In `SpringBootMicroserviceEurekaNamingServerApplication` is the main application in for Eureka server. You have to add `@EnableEurekaServer` annotation  to this class to inject that this application is an Eureka server.
+
+
+In the `application.properties` (under `\src\main\resouces`), please add the line below to configure this Eureka server. This eureka server will run on port 8761. 
+
+```
+spring.application.name=netflix-eureka-naming-server
+server.port=8761
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+```
+The `eureka.client.register-with-eureka` and `eureka.client.fetch-registry` are set to false  so that it doesn’t try to register itself.
+
+The next step is to configure Eureka client. We have two services `forex-service` and `currency-conversion` which will act as Eureka client. In the main class of spring boot application (`SpringBootMicroserviceCurrencyConversionApplication` and `SpringBootMicroserviceForexServiceApplication` class),  add `@EnableDiscoveryClient` annotation above the class definition as the sample below.
+
+```
+@SpringBootApplication
+@EnableDiscoveryClient
+public class SpringBootMicroserviceForexServiceApplication {
+...
+```
+
+In the application.properties of both project `lab-microservice-currency-conversion` and `lab-microservice-forex-service`, please add the following line to configure Eureka client. This configuration enables both application to register on Eureka server located at `http://localhost:8761/eureka/`
+
+```
+eureka.client.register-with-eureka=true
+eureka.client.fetch-registry=true
+eureka.client.serviceUrl.defaultZone=http://localhost:8761/eureka/
+```
+
+#### (b) Configure Load Balancer 
+This step add a load balancer when the `currency-conversion` consumes `forex-service`. As there can be multiple instances of `forex-service`, the load balancer will help distribute the requests to different instances depending on their status and availability. We will use Spring cloud Load balancer in this exercise. Please make sure `spring-cloud-starter-loadbalancer` is included in the dependency of pom.xml of `lab-microservice-currency-conversion`.
+
+
+Now, add the load balancer configuration class `LoadBalancerConfiguration` as shown below in `lab-microservice-currency-conversion` project. There is number of options you configure the load balancer to distribute the load in different way such as distribute to the same instance if available, or distribute based on the request's priority or current load. 
+
+```
+package lab.microservice.currencyconversion;
+
+import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class LoadBalancerConfiguration {
+	@Bean
+	public ServiceInstanceListSupplier discoveryClientServiceInstanceListSupplier(
+			ConfigurableApplicationContext context) {
+		System.out.println("Configuring Load balancer to prefer same instance");
+		return ServiceInstanceListSupplier.builder().withBlockingDiscoveryClient()
+				.build(context);
+	}
+}
+```
+
+In the `CurrencyExchangeServiceProxy` interface, add the annotation below to the interface definition (somewhere below `@FeignClient`). This annotation tells Feign client to use specified load balancer's configuration class when consuming services on `forex-service`.
+
+```
+@LoadBalancerClient(name = "forex-service",configuration=LoadBalancerConfiguration.class)
+```
+
+That's all!
+
+
+#### (c) Run Services
+Please stop any running application on Eclipse before following the instruction below to test this
+- Start Eureka server by running `SpringBootMicroserviceEurekaNamingServerApplication` as Java application 
+- Start Forex-service by running `SpringBootMicroserviceForexServiceApplication` as Java application. This application should now register itself to Eureka Server 
+- Start the second instance of Forex-service on port 8001. This can be done by going to Run Configurations on Eclipse, as screen below. Right click on `SpringBootMicroserviceForexServiceApplication` configuration and select Duplicate. In the new run configuration, under VM-argument, add `-Dserver.port=8001`. Then, click on Run
+
+![](run-configuration.png)
+
+
+- Start Currency-conversion by running `SpringBootMicroserviceCurrencyConversionApplication` as Java application. This application should also register itself to Eureka Server
+
+- Now you can test by making GET request to `http://localhost:8100/currency-converter-feign/from/EUR/to/THB/quantity/10000` You may notice that the results include the port that is sometime 8000 and sometime 8001 as the load balancer distribute the request to two instances of `forex-service` running on 8000 and 8001.
+
+You can also see the Eureka dashboard at `http://localhost:8761/`. The dashboard should show as shown below. There is 1 instance of CURRENCY-CONVERSION-SERVICE registered and 2 instances of FOREX-SERVICE.
+![](eureka-dashboard.png)
+  

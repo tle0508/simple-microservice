@@ -1,8 +1,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>nz.ac.auckland</groupId>
-	<artifactId>lab-end2end</artifactId>
+	<groupId>th.ac.mfu</groupId>
+	<artifactId>lab-microservice</artifactId>
 	<version>1.0</version>
 	<packaging>pom</packaging>
 	<name>lab-end2end</name>
@@ -18,23 +18,13 @@
 	</properties>
 	
 	<modules>
-		<module>lab-end2end-concert-domain-model</module>
-		<module>lab-end2end-concert-web-service</module>
+		<module>lab-microservice-currency-conversion</module>
+		<module>lab-microservice-forex-service</module>
+		<module>lab-microservice-eureka-naming-server</module>
 	</modules>
 	
 	<dependencies>
-		<!-- Hibernate JPA provider. -->
-		<dependency>
-			<groupId>org.hibernate</groupId>
-			<artifactId>hibernate-entitymanager</artifactId>
-			<version>${hibernate.version}</version>
-		</dependency>
-		<!-- H2 embedded database. -->
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<version>${h2.version}</version>
-		</dependency>
+		
 		<!-- Apache Commons utilities -->
 		<dependency>
 			<groupId>org.apache.commons</groupId>
