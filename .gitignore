@@ -10,6 +10,9 @@
  
 # Mac
 .DS_Store
+
+#VSCode
+.vscode
  
 # Maven
 log/
