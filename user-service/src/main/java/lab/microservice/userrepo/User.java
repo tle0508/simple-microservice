@@ -1,10 +1,11 @@
-package lab.microservice.sample;
+package lab.microservice.userrepo;
 
 import javax.annotation.Generated;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Transient;
 
 @Entity
 public class User {
@@ -13,6 +14,10 @@ public class User {
     private Long id;
     private String username;
     private String email;
+
+    @Transient
+    private int port;
+
     public Long getId() {
         return id;
     }
@@ -30,6 +35,12 @@ public class User {
     }
     public void setEmail(String email) {
         this.email = email;
+    }
+    public int getPort() {
+        return port;
+    }
+    public void setPort(int port) {
+        this.port = port;
     }
 
     
